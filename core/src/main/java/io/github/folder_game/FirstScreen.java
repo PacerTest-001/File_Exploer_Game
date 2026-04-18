@@ -14,6 +14,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Null;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -44,7 +45,7 @@ public class FirstScreen implements Screen {
     FitViewport viewport;
 
     int amountInRow = 5;
-    float scaleAmount = 100;
+    float scaleAmount = 400;
 
     Vector2 touchPos;
     boolean barVisible = false;
@@ -53,11 +54,19 @@ public class FirstScreen implements Screen {
     Stage stage;
     Skin skin;
 
+    // Animation Set Up.
+    float animationSpeed = 0.1f;
+    float animationAmount = 10f;
+    float animationTick = 0;
+
     // Logic Set Up.
+    TextField fileToAddName;
+
     Explorer explorer;
     Random random;
 
     Rectangle mouseClick;
+    Rectangle mouseHover;
     Rectangle backArrowBox;
 
     Rectangle selectionRange;
@@ -91,6 +100,7 @@ public class FirstScreen implements Screen {
         random = new Random();
 
         mouseClick = new Rectangle();
+        mouseHover = new Rectangle();
         backArrowBox = new Rectangle();
 
         selectionRange = new Rectangle();
@@ -99,11 +109,14 @@ public class FirstScreen implements Screen {
         deleteItem = new Rectangle();
 
         // Font stuff (Low key got stuck here because of text being huge)
+        skin = new Skin(Gdx.files.internal("ui/uiskin.json"));
+        stage = new Stage(viewport);
+        Gdx.input.setInputProcessor(stage);
 
         FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal("fonts/GalaferaMedium-V4xze.ttf"));
         FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 
-        parameter.size = (int)(Gdx.graphics.getHeight() * (scaleAmount * 0.0005)); // 5% of screen height
+        parameter.size = (int)(Gdx.graphics.getHeight() * (scaleAmount * 0.0005));
 
         // Loading true font
         font = generator.generateFont(parameter);
@@ -115,16 +128,24 @@ public class FirstScreen implements Screen {
     public void render(float delta) {
         // Draw your screen here. "delta" is the time since last render in seconds.
         // System.out.println(delta);
+
         input();
 
         if (paused) return;
 
         logic();
-        draw();
+        draw(delta);
     }
 
     private void input() {
         // Game Input
+
+        // Get the hover position of the mouse for logic later.
+        if (!barVisible) {
+            touchPos.set(Gdx.input.getX(), Gdx.input.getY());
+            viewport.unproject(touchPos);
+            mouseHover.set(touchPos.x, touchPos.y, 0.01f * scaleAmount, 0.01f * scaleAmount);
+        }
 
         // These will only fire when pressed.
         if (Gdx.input.isButtonJustPressed(0)) {
@@ -170,10 +191,11 @@ public class FirstScreen implements Screen {
 
                 // handles what happens when you create something.
                 if (mouseClick.overlaps(addNew)) {
-                    System.out.println("Adding folder.");
-                    Folder f = new Folder("LOL_" + random.nextInt(9999));
-                    f.parent = explorer.currentFolder;
-                    explorer.allFiles.put(f.name, f);
+                    textAddInput();
+//                    System.out.println("Adding folder.");
+//                    Folder f = new Folder("LOL_" + random.nextInt(9999));
+//                    f.parent = explorer.currentFolder;
+//                    explorer.allFiles.put(f.name, f);
                 }
 
                 if (mouseClick.overlaps(deleteItem)) {
@@ -189,6 +211,41 @@ public class FirstScreen implements Screen {
                 wipeBar = false;
             }
 
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            System.out.println("PRESSED ENTER!");
+            if (fileToAddName != null) {
+                String getText = fileToAddName.getText();
+                String[] textArray = getText.split("\\.");
+
+                BaseFile using = null;
+                switch (textArray[1]) {
+                    case "txt": {
+                        TextFile textFile = new TextFile(textArray[0]);
+                        using = textFile;
+                        break;
+                    }
+                    case "folder": {
+                        Folder folder = new Folder(textArray[0]);
+                        using = folder;
+                        break;
+                    }
+
+                    default: {
+                        System.out.println("There must be a valid file format!");
+                    }
+                }
+
+                if (using != null) {
+
+                    explorer.allFiles.put(using.name, using);
+                    using.parent = explorer.currentFolder;
+
+                    fileToAddName.remove();
+                    fileToAddName = null;
+                }
+            }
         }
 
         BaseFile fileToOpen = null;
@@ -227,7 +284,11 @@ public class FirstScreen implements Screen {
     }
 
     // Wipes the orginal screen then draws all the objects on the screen every frame.
-    private void draw() {
+    private void draw(float delta) {
+        // adds to the current animation tick.
+        animationTick += delta;
+        double animationInDegrees = Math.toDegrees(animationTick);
+
         // Clears the screen
         ScreenUtils.clear(Color.BLACK);
 //        viewport.apply();
@@ -240,7 +301,11 @@ public class FirstScreen implements Screen {
         float height = viewport.getWorldHeight();
 
         spriteBatch.draw(bg_Texture, 0, 0, width, height);
-        spriteBatch.draw(back_Arrow, 7.25f * scaleAmount, 4.25f * scaleAmount, 0.5f * scaleAmount, 0.5f * scaleAmount);
+        if (mouseHover.overlaps(backArrowBox)) {
+            spriteBatch.draw(back_Arrow, (7.25f - 0.02f) * scaleAmount, (4.25f - 0.02f) * scaleAmount, 0.55f * scaleAmount, 0.55f * scaleAmount);
+        } else {
+            spriteBatch.draw(back_Arrow, 7.25f * scaleAmount, 4.25f * scaleAmount, 0.5f * scaleAmount, 0.5f * scaleAmount);
+        }
         backArrowBox.set(7.25f * scaleAmount, 4.25f * scaleAmount, 0.5f * scaleAmount, 0.5f * scaleAmount);
         if (debugMode) {
             spriteBatch.draw(hitBoxShow, 7.25f * scaleAmount, 4.25f * scaleAmount, 0.5f * scaleAmount, 0.5f * scaleAmount);
@@ -266,9 +331,14 @@ public class FirstScreen implements Screen {
                 Texture usedTexture = getTextureForType(file.type);
 
                 if (usedTexture != null) {
+                    // Drawing/Animating the files.
 
-                    spriteBatch.draw(usedTexture, amountX + startingX, startingY - amountY, 0.75f * scaleAmount, 0.75f * scaleAmount);
                     file.hitBox.set(amountX + startingX, startingY - amountY, 0.75f * scaleAmount, 0.75f * scaleAmount);
+                    if (mouseHover.overlaps(file.hitBox)) {
+                        spriteBatch.draw(usedTexture, (float) (((amountX + startingX) - 0.05f * scaleAmount) + (Math.sin((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), (float) (((startingY - amountY) - 0.05f * scaleAmount) + (Math.cos((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), 0.85f * scaleAmount, 0.85f * scaleAmount);
+                    } else {
+                        spriteBatch.draw(usedTexture, (float) ((amountX + startingX) + (Math.sin((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), (float) (startingY - amountY + (Math.cos((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), 0.75f * scaleAmount, 0.75f * scaleAmount);
+                    }
                     if (debugMode) {
                         spriteBatch.draw(hitBoxShow, amountX + startingX, startingY - amountY, 0.75f * scaleAmount, 0.75f * scaleAmount);
                     }
@@ -298,12 +368,17 @@ public class FirstScreen implements Screen {
 
         // End drawing.
         spriteBatch.end();
+
+        stage.act(Gdx.graphics.getDeltaTime());
+        stage.draw();
+
+//        System.out.println(fileToAddName);
     }
 
     /*
     Grabs the texture for the matching type.
      */
-    public Texture getTextureForType(String type) {
+    private Texture getTextureForType(String type) {
         Texture usedTexture = null;
         switch (type) {
             case "Folder": {
@@ -321,6 +396,35 @@ public class FirstScreen implements Screen {
             }
         }
         return usedTexture;
+    }
+    private void textAddInput() {
+//        Gdx.input.getTextInput(new Input.TextInputListener() {
+//            @Override
+//            public void input(String text) {
+//                // Called when user presses OK
+//                fileToAddName = text;
+//            }
+//
+//            @Override
+//            public void canceled() {
+//                // Called when user presses Cancel or closes the dialog
+//
+//            }
+//        }, "Enter file name.", "", "Type here...");
+        if (fileToAddName != null) {
+            fileToAddName.remove();
+        }
+
+        fileToAddName = new TextField("", skin);
+        fileToAddName.setMessageText("FileName... (.txt / .folder)");
+
+        fileToAddName.setSize(2f * scaleAmount, 1f * scaleAmount);
+        fileToAddName.setPosition(3 * scaleAmount, 2f * scaleAmount);
+        fileToAddName.setAlignment(Align.center);
+
+        fileToAddName.getStyle().font.getData().setScale(0.01f * scaleAmount);
+
+        stage.addActor(fileToAddName);
     }
 
     @Override
