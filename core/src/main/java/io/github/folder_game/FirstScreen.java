@@ -26,6 +26,7 @@ import io.github.folder_game.base.TextFile;
 import org.apache.tools.ant.util.UnicodeUtil;
 import org.w3c.dom.Text;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
@@ -220,20 +221,31 @@ public class FirstScreen implements Screen {
                 String[] textArray = getText.split("\\.");
 
                 BaseFile using = null;
-                switch (textArray[1]) {
-                    case "txt": {
-                        TextFile textFile = new TextFile(textArray[0]);
-                        using = textFile;
-                        break;
-                    }
-                    case "folder": {
-                        Folder folder = new Folder(textArray[0]);
-                        using = folder;
-                        break;
+
+                if (textArray.length > 1) {
+
+                    StringBuilder endCaption =  new StringBuilder();
+                    BaseFile cFile = explorer.currentFolder;
+                    while (cFile.parent != null) {
+                        endCaption.append("_" + cFile.name);
+                        cFile = cFile.parent;
                     }
 
-                    default: {
-                        System.out.println("There must be a valid file format!");
+                    switch (textArray[1]) {
+                        case "txt": {
+                            TextFile textFile = new TextFile(textArray[0] + endCaption.toString() + ".text");
+                            using = textFile;
+                            break;
+                        }
+                        case "folder": {
+                            Folder folder = new Folder(textArray[0] + endCaption.toString() + ".folder");
+                            using = folder;
+                            break;
+                        }
+
+                        default: {
+                            System.out.println("There must be a valid file format!");
+                        }
                     }
                 }
 
@@ -242,6 +254,9 @@ public class FirstScreen implements Screen {
                     explorer.allFiles.put(using.name, using);
                     using.parent = explorer.currentFolder;
 
+                    fileToAddName.remove();
+                    fileToAddName = null;
+                } else {
                     fileToAddName.remove();
                     fileToAddName = null;
                 }
@@ -334,15 +349,23 @@ public class FirstScreen implements Screen {
                     // Drawing/Animating the files.
 
                     file.hitBox.set(amountX + startingX, startingY - amountY, 0.75f * scaleAmount, 0.75f * scaleAmount);
+
+                    // The code here got messy because of the fact that I was trying to do animations and had to offset the sprites.
                     if (mouseHover.overlaps(file.hitBox)) {
-                        spriteBatch.draw(usedTexture, (float) (((amountX + startingX) - 0.05f * scaleAmount) + (Math.sin((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), (float) (((startingY - amountY) - 0.05f * scaleAmount) + (Math.cos((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), 0.85f * scaleAmount, 0.85f * scaleAmount);
+                        spriteBatch.draw(usedTexture, (float) (((amountX + startingX) - 0.05f * scaleAmount) + (Math.sin((animationInDegrees*animationSpeed) + (amountFound * 0.5)) * animationAmount)), (float) (((startingY - amountY) - 0.05f * scaleAmount) + (Math.cos((animationInDegrees*animationSpeed) + (amountFound * 0.5)) * animationAmount)), 0.85f * scaleAmount, 0.85f * scaleAmount);
                     } else {
-                        spriteBatch.draw(usedTexture, (float) ((amountX + startingX) + (Math.sin((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), (float) (startingY - amountY + (Math.cos((animationInDegrees*animationSpeed) + amountFound) * animationAmount)), 0.75f * scaleAmount, 0.75f * scaleAmount);
+                        spriteBatch.draw(usedTexture, (float) ((amountX + startingX) + (Math.sin((animationInDegrees*animationSpeed) + (amountFound * 0.5)) * animationAmount)), (float) (startingY - amountY + (Math.cos((animationInDegrees*animationSpeed) + (amountFound * 0.5)) * animationAmount)), 0.75f * scaleAmount, 0.75f * scaleAmount);
                     }
                     if (debugMode) {
                         spriteBatch.draw(hitBoxShow, amountX + startingX, startingY - amountY, 0.75f * scaleAmount, 0.75f * scaleAmount);
                     }
-                    font.draw(spriteBatch, file.name, amountX + startingX, startingY - amountY);
+
+                    // path names are where the file can be found and they are forced into the name.
+                    String[] pathName = file.name.split("_");
+
+                    // the format of the file. (I get rid of it so that there is more space for name characters without over stepping.)
+                    String[] formatName = pathName[0].split("\\.");
+                    font.draw(spriteBatch, formatName[0], amountX + startingX, startingY - amountY);
 
                     // Sets the textures to be wrapped.
                     amountFound++;
@@ -369,6 +392,7 @@ public class FirstScreen implements Screen {
         // End drawing.
         spriteBatch.end();
 
+        // This is for the textField when you are writing the names and format for the file you are creating.
         stage.act(Gdx.graphics.getDeltaTime());
         stage.draw();
 
